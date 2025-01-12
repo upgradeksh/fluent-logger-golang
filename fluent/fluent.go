@@ -464,6 +464,25 @@ func (f *Fluent) connect(ctx context.Context) (err error) {
 
 var errIsClosing = errors.New("fluent logger is closing")
 
+// calculateWaitTime calculates wait time for exponential backoff retries.
+// It takes initial retry wait time, maximum wait time and backoff weight as parameters.
+// The function calculates exponential backoff using floating-point arithmetic to handle large numbers,
+// preventing integer overflow which could result in negative values.
+// If the calculated wait time exceeds maxRetryWait, it returns maxRetryWait.
+func calculateWaitTime(retryWait, maxRetryWait, backoffWeight int) (int, error) {
+	if retryWait <= 0 || maxRetryWait <= 0 || backoffWeight < 0 {
+		return 0, fmt.Errorf("wait time can't be negative: %d * %d * %d", retryWait, maxRetryWait, backoffWeight)
+	}
+
+	waitTime := float64(retryWait) * math.Pow(defaultReconnectWaitIncreRate, float64(backoffWeight-1))
+
+	if waitTime > float64(maxRetryWait) {
+		return maxRetryWait, nil
+	}
+
+	return int(waitTime), nil
+}
+
 // Caller should take care of locking muconn first.
 func (f *Fluent) connectWithRetry(ctx context.Context) error {
 	// A Time channel is used instead of time.Sleep() to avoid blocking this
