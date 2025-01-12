@@ -512,9 +512,9 @@ func (f *Fluent) connectWithRetry(ctx context.Context) error {
 				return errIsClosing
 			}
 
-			waitTime := f.Config.RetryWait * e(defaultReconnectWaitIncreRate, float64(i-1))
-			if waitTime > f.Config.MaxRetryWait {
-				waitTime = f.Config.MaxRetryWait
+			waitTime, err := calculateWaitTime(f.Config.RetryWait, f.Config.MaxRetryWait, i)
+			if err != nil {
+				return fmt.Errorf("cound not connec to fluentd with negative wait time: %w", err)
 			}
 
 			timeout = time.NewTimer(time.Duration(waitTime) * time.Millisecond)
