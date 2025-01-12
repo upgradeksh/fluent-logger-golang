@@ -981,3 +981,68 @@ func TestConnectWithRetryOverflow(t *testing.T) {
 		t.Fatal("Test hangs due to negative duration in NewTimer")
 	}
 }
+
+func TestCalculateWaitTime(t *testing.T) {
+	tests := []struct {
+		name          string
+		retryWait     int
+		maxRetryWait  int
+		backoffWeight int
+		want          int
+		wantErr       bool
+	}{
+		{
+			name:          "first retry should use retryWait",
+			retryWait:     500,
+			maxRetryWait:  60000,
+			backoffWeight: 1,
+			want:          500,
+			wantErr:       false,
+		},
+		{
+			name:          "should not exceed maxRetryWait",
+			retryWait:     5000,
+			maxRetryWait:  1000,
+			backoffWeight: 2,
+			want:          1000,
+			wantErr:       false,
+		},
+		{
+			name:          "should handle overflow",
+			retryWait:     math.MaxInt32 / 2,
+			maxRetryWait:  60000,
+			backoffWeight: 3,
+			want:          60000,
+			wantErr:       false,
+		},
+		{
+			name:          "should error on negative retry wait",
+			retryWait:     -1,
+			maxRetryWait:  60000,
+			backoffWeight: 1,
+			want:          0,
+			wantErr:       true,
+		},
+		{
+			name:          "should error on negative backoff weight",
+			retryWait:     500,
+			maxRetryWait:  60000,
+			backoffWeight: -1,
+			want:          0,
+			wantErr:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := calculateWaitTime(tt.retryWait, tt.maxRetryWait, tt.backoffWeight)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("calculateWaitTime() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("calculateWaitTime() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
